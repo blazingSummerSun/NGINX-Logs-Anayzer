@@ -34,26 +34,25 @@ public class LogAnalyzer {
     }
 
     public void analyze() {
-        long totalRequests = 0;
+        AtomicLong totalRequests = new AtomicLong();
         Map<String, Integer> resourceCount = new HashMap<>();
         Map<String, Integer> responseCodeCount = new HashMap<>();
         AtomicLong totalResponseSize = new AtomicLong(0);
         for (String path : inputParser.paths()) {
             try (Stream<String> stream = createStream(path)) {
                 if (stream != null) {
-                    totalRequests += (stream
-                        .peek(line -> {
-                            LogData logEntry = parseLogEntry(line);
+                    stream.forEach(line -> {
+                        totalRequests.getAndIncrement();
+                        LogData logEntry = parseLogEntry(line);
 
-                            resourceCount.put(logEntry.resource(),
-                                resourceCount.getOrDefault(logEntry.resource(), 0) + 1);
+                        resourceCount.put(logEntry.resource(),
+                            resourceCount.getOrDefault(logEntry.resource(), 0) + 1);
 
-                            responseCodeCount.put(logEntry.responseCode(),
-                                responseCodeCount.getOrDefault(logEntry.responseCode(), 0) + 1);
+                        responseCodeCount.put(logEntry.responseCode(),
+                            responseCodeCount.getOrDefault(logEntry.responseCode(), 0) + 1);
 
-                            totalResponseSize.addAndGet(logEntry.responseSize());
-                        })
-                        .count());
+                        totalResponseSize.addAndGet(logEntry.responseSize());
+                    });
                 }
             }
         }
@@ -66,7 +65,7 @@ public class LogAnalyzer {
             .map(Map.Entry::getKey)
             .orElse(UNDEFINED);
         double averageResponseSize =
-            totalRequests > 0 ? (double) totalResponseSize.get() / totalRequests : 0;
+            totalRequests.get() > 0 ? (double) totalResponseSize.get() / totalRequests.get() : 0;
 
         output.println("Total Requests: " + totalRequests);
         output.println("Most Requested Resource: " + mostRequestedResource);
@@ -113,7 +112,7 @@ public class LogAnalyzer {
 
             return new LogData(resource, responseCode, responseSize);
         } else {
-            throw new IllegalArgumentException("Log line does not match the expected format: " + line);
+            throw new IllegalArgumentException("Log line doesn't match the NGINX format");
         }
     }
 
