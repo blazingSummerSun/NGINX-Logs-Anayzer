@@ -96,7 +96,7 @@ public class LogAnalyzer {
     private static LogData parseLineToLogData(String line) {
         Matcher matcher = LOG_PATTERN.matcher(line);
         if (matcher.find()) {
-            String resource = matcher.group(RESOURCE_ID);
+            String resource = matcher.group(RESOURCE_ID).split(" ")[1];
             String responseCode = matcher.group(RESPONSE_CODE_ID);
             long responseSize = Long.parseLong(matcher.group(RESPONSE_SIZE_ID));
             return new LogData(resource, responseCode, responseSize);
