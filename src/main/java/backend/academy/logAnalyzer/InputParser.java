@@ -8,18 +8,14 @@ import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.Getter;
 
 public class InputParser {
-    @Getter private final List<String> paths;
+    @Getter private String path;
     @Getter private LocalDateTime from;
     @Getter private LocalDateTime to;
     @Getter private String format;
@@ -27,7 +23,6 @@ public class InputParser {
     private final BufferedReader reader;
 
     public InputParser(PrintStream output, InputStream input) {
-        this.paths = new ArrayList<>();
         this.output = output;
         this.reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
     }
@@ -37,23 +32,11 @@ public class InputParser {
         String[] args = inputString.split(" ");
         ISOParser isoParser = new ISOParser();
         int pointer = 0;
+
         while (pointer < args.length) {
             switch (args[pointer]) {
                 case "--path":
-                    String[] pathArgs = args[++pointer].split(",");
-                    for (String pathArg : pathArgs) {
-                        try {
-                            URL url = new URI(pathArg).toURL();
-                            paths.add(pathArg);
-                        } catch (IllegalArgumentException | URISyntaxException | MalformedURLException e) {
-                            if (isValidPath(pathArg)) {
-                                Path localPath = Paths.get(pathArg);
-                                paths.add(localPath.toString());
-                            } else {
-                                output.println("Invalid path: " + pathArg);
-                            }
-                        }
-                    }
+                    path = parsePath(args[++pointer]);
                     break;
                 case "--from":
                     this.from = isoParser.parseIso8601(args[++pointer]);
@@ -70,16 +53,30 @@ public class InputParser {
         }
     }
 
-    private boolean isValidPath(String path) {
+    private String parsePath(String arg) {
+        try {
+            new URI(arg).toURL();
+            return arg;  // It's a valid URL
+        } catch (MalformedURLException | URISyntaxException | IllegalArgumentException e) {
+            if (isValidPathOrPattern(arg)) {
+                return arg;
+            } else {
+                output.println("Invalid path or pattern: " + arg);
+                return null;
+            }
+        }
+    }
+
+    private boolean isValidPathOrPattern(String path) {
         if (path == null || path.trim().isEmpty()) {
             return false;
         }
         String sanitizedPath = path.trim();
-        if (!sanitizedPath.matches("[a-zA-Z0-9_/.-]+")) {
+        if (!sanitizedPath.matches("[a-zA-Z0-9_/.*?-]+")) {
             return false;
         }
         try {
-            Paths.get(sanitizedPath);
+            Paths.get(sanitizedPath.replace("*", "test"));  // Replace '*' temporarily to check path validity
             return true;
         } catch (InvalidPathException e) {
             return false;
@@ -90,7 +87,7 @@ public class InputParser {
         try {
             return reader.readLine();
         } catch (IOException e) {
-            output.println("Your string is wrong!");
+            output.println("Error reading input!");
         }
         return null;
     }
