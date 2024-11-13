@@ -104,7 +104,7 @@ public class LogAnalyzer {
                 }
             });
         } catch (IOException e) {
-            output.println("path doesn't exist!");
+            output.println(ExceptionList.INVALID_PATH_PATTERN.exception());
         }
         return logFiles;
     }
@@ -151,7 +151,7 @@ public class LogAnalyzer {
             return reader.lines()
                 .map(line -> parseLineToLogData(line, fromDate, toDate)).filter(Objects::nonNull);
         } catch (IOException | URISyntaxException e) {
-            output.println("Error fetching or reading from URL: " + urlString);
+            output.println(ExceptionList.ERROR_FETCHING_URL.exception());
             return Stream.empty();
         }
     }

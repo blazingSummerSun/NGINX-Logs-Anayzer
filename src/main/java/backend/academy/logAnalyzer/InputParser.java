@@ -56,12 +56,12 @@ public class InputParser {
     private String parsePath(String arg) {
         try {
             new URI(arg).toURL();
-            return arg;  // It's a valid URL
+            return arg;
         } catch (MalformedURLException | URISyntaxException | IllegalArgumentException e) {
             if (isValidPathOrPattern(arg)) {
                 return arg;
             } else {
-                output.println("Invalid path or pattern: " + arg);
+                output.println(ExceptionList.INVALID_PATH_PATTERN.exception());
                 return null;
             }
         }
@@ -87,7 +87,7 @@ public class InputParser {
         try {
             return reader.readLine();
         } catch (IOException e) {
-            output.println("Error reading input!");
+            output.println(ExceptionList.ERROR_INPUT_STRING.exception());
         }
         return null;
     }
