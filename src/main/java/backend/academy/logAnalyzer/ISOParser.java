@@ -10,31 +10,34 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
 public class ISOParser {
+    private static final String ISO_OFFSET_DATE_TIME = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}[+-]\\d{2}:\\d{2}";
+    private static final String ISO_ZONED_DATE_TIME = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z";
+    private static final String BASIC_ZONED_DATE_TIME = "\\d{8}T\\d{6}Z";
+    private static final String ISO_LOCAL_DATE = "\\d{4}-\\d{2}-\\d{2}";
+    private static final String ISO_WEEK_DATE = "\\d{4}-W\\d{2}(-\\d)?";
+    private static final String ISO_ORDINAL_DATE = "\\d{4}-\\d{3}";
+    private static final String MONTH_DAY = "--\\d{2}-\\d{2}";
 
     public LocalDateTime parseIso8601(String isoDate) {
-        LocalDateTime result = parseIsoOffsetDateTime(isoDate);
-        if (result == null) {
-            result = parseZonedDateTime(isoDate);
+        LocalDateTime formattedTime;
+        if (isoDate.matches(ISO_OFFSET_DATE_TIME)) {
+            formattedTime = parseIsoOffsetDateTime(isoDate);
+        } else if (isoDate.matches(ISO_ZONED_DATE_TIME)) {
+            formattedTime = parseZonedDateTime(isoDate);
+        } else if (isoDate.matches(BASIC_ZONED_DATE_TIME)) {
+            formattedTime = parseBasicZonedDateTime(isoDate);
+        } else if (isoDate.matches(ISO_LOCAL_DATE)) {
+            formattedTime = parseLocalDate(isoDate);
+        } else if (isoDate.matches(ISO_WEEK_DATE)) {
+            formattedTime = parseIsoWeekDate(isoDate);
+        } else if (isoDate.matches(ISO_ORDINAL_DATE)) {
+            formattedTime = parseIsoOrdinalDate(isoDate);
+        } else if (isoDate.matches(MONTH_DAY)) {
+            formattedTime = parseMonthDay(isoDate);
+        } else {
+            return null;
         }
-        if (result == null) {
-            result = parseBasicZonedDateTime(isoDate);
-        }
-        if (result == null) {
-            result = parseLocalDate(isoDate);
-        }
-        if (result == null) {
-            result = parseIsoWeekDate(isoDate);
-        }
-        if (result == null) {
-            result = parseIsoWeekDateWithDay(isoDate);
-        }
-        if (result == null) {
-            result = parseIsoOrdinalDate(isoDate);
-        }
-        if (result == null) {
-            result = parseMonthDay(isoDate);
-        }
-        return result;
+        return formattedTime;
     }
 
     private LocalDateTime parseIsoOffsetDateTime(String isoDate) {
@@ -76,14 +79,6 @@ public class ISOParser {
                 isoDateCopy += "-1";
             }
             return LocalDate.parse(isoDateCopy, DateTimeFormatter.ISO_WEEK_DATE).atStartOfDay();
-        } catch (DateTimeParseException ignored) {
-            return null;
-        }
-    }
-
-    private LocalDateTime parseIsoWeekDateWithDay(String isoDate) {
-        try {
-            return LocalDate.parse(isoDate, DateTimeFormatter.ISO_WEEK_DATE).atStartOfDay();
         } catch (DateTimeParseException ignored) {
             return null;
         }
