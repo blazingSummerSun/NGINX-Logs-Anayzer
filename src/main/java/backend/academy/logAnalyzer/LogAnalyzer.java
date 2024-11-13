@@ -20,22 +20,19 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class LogAnalyzer {
-    private static final String UNDEFINED = "None";
     private static final double PERCENTILE = 0.95;
-    private static final int SAMPLE_SIZE = 10000;
     private static final int SHIFT = 1;
     private static final Pattern LOG_PATTERN = Pattern.compile(
         "^(\\S+) - (\\S+) \\[([^]]+)] "
@@ -54,12 +51,20 @@ public class LogAnalyzer {
         Map<String, AtomicLong> resourceFrequency = new ConcurrentHashMap<>();
         Map<String, AtomicLong> responseCodeFrequency = new ConcurrentHashMap<>();
         AtomicLong totalResponseSize = new AtomicLong();
+        List<String> processedFiles = new ArrayList<>();
+        List<Long> responseSizes = new ArrayList<>();
 
-        PriorityQueue<Long> responseSizeQueue = new PriorityQueue<>(Comparator.reverseOrder());
+        Supplier<Stream<LogData>> logDataStreamSupplier = () -> {
+            if (isValidURL(path)) {
+                processedFiles.add(path);
+                return createStreamFromURL(path, output, fromDate, toDate);
+            } else {
+                List<Path> logFiles = getMatchingFiles(path, output);
+                logFiles.forEach(file -> processedFiles.add(file.toString()));
+                return logFiles.stream().flatMap(file -> parseFileToStream(file, fromDate, toDate));
 
-        Supplier<Stream<LogData>> logDataStreamSupplier = () -> isValidURL(path)
-            ? createStreamFromURL(path, output, fromDate, toDate)
-            : getMatchingFiles(path, output).stream().flatMap(file -> parseFileToStream(file, fromDate, toDate));
+            }
+        };
 
         try (Stream<LogData> logDataStream = logDataStreamSupplier.get()) {
             logDataStream.forEach(log -> {
@@ -67,37 +72,18 @@ public class LogAnalyzer {
                 resourceFrequency.computeIfAbsent(log.resource(), k -> new AtomicLong()).incrementAndGet();
                 responseCodeFrequency.computeIfAbsent(log.responseCode(), k -> new AtomicLong()).incrementAndGet();
                 totalResponseSize.addAndGet(log.responseSize());
-
-                if (responseSizeQueue.size() < SAMPLE_SIZE) {
-                    responseSizeQueue.add(log.responseSize());
-                } else if (responseSizeQueue.peek() < log.responseSize()) {
-                    responseSizeQueue.poll();
-                    responseSizeQueue.add(log.responseSize());
-                }
+                responseSizes.add(log.responseSize());
             });
         }
 
-        String mostRequestedResource = resourceFrequency.entrySet().stream()
-            .max(Map.Entry.comparingByValue(Comparator.comparingLong(AtomicLong::get)))
-            .map(Map.Entry::getKey).orElse(UNDEFINED);
+        Map<String, Long> filteredResponseCodes = responseCodeFrequency.entrySet().stream()
+            .filter(entry -> entry.getValue().get() > 0)
+            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get()));
 
-        String mostFrequentResponseCode = responseCodeFrequency.entrySet().stream()
-            .max(Map.Entry.comparingByValue(Comparator.comparingLong(AtomicLong::get)))
-            .map(Map.Entry::getKey).orElse(UNDEFINED);
-
-        double avgResponseSize = totalRequests.get() > 0 ? (double) totalResponseSize.get() / totalRequests.get() : 0;
-
-        double percentile95 = calculatePercentile(responseSizeQueue);
-
-        printResults(totalRequests.get(), mostRequestedResource, mostFrequentResponseCode, avgResponseSize,
-            percentile95, output);
-    }
-
-    private double calculatePercentile(PriorityQueue<Long> queue) {
-        List<Long> sortedSizes = new ArrayList<>(queue);
-        sortedSizes.sort(Comparator.naturalOrder());
-        int index = (int) Math.ceil(PERCENTILE * (sortedSizes.size() - 1));
-        return sortedSizes.get(index);
+        CollectedData collectedData = new CollectedData(processedFiles, totalRequests.get(), resourceFrequency,
+            filteredResponseCodes, totalResponseSize.get(), responseSizes);
+        LogReportGenerator logReport = new LogReportGenerator(format, fromDate, toDate, PERCENTILE);
+        logReport.generateLog(collectedData, output);
     }
 
     private static List<Path> getMatchingFiles(String userPathPattern, PrintStream output) {
@@ -168,21 +154,6 @@ public class LogAnalyzer {
             output.println("Error fetching or reading from URL: " + urlString);
             return Stream.empty();
         }
-    }
-
-    private void printResults(
-        long totalRequests,
-        String mostRequestedResource,
-        String mostCommonResponseCode,
-        double averageResponseSize,
-        double percentile95,
-        PrintStream output
-    ) {
-        output.println("Total Requests: " + totalRequests);
-        output.println("Most Requested Resource: " + mostRequestedResource);
-        output.println("Most Common Response Code: " + mostCommonResponseCode);
-        output.println("Average Response Size: " + averageResponseSize);
-        output.printf("95th Percentile Response Size: %.2f bytes%n", percentile95);
     }
 
     private boolean isValidURL(String url) {
