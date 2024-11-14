@@ -20,6 +20,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,7 +29,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class LogAnalyzer {
@@ -48,6 +48,8 @@ public class LogAnalyzer {
 
     public void analyze(String path, LocalDateTime fromDate, LocalDateTime toDate, String format) {
         AtomicLong totalRequests = new AtomicLong();
+        Map<String, AtomicLong> ips = new ConcurrentHashMap<>();
+        Map<String, AtomicLong> users = new ConcurrentHashMap<>();
         Map<String, AtomicLong> resourceFrequency = new ConcurrentHashMap<>();
         Map<String, AtomicLong> responseCodeFrequency = new ConcurrentHashMap<>();
         AtomicLong totalResponseSize = new AtomicLong();
@@ -71,19 +73,17 @@ public class LogAnalyzer {
                 totalRequests.incrementAndGet();
                 resourceFrequency.computeIfAbsent(log.resource(), k -> new AtomicLong()).incrementAndGet();
                 responseCodeFrequency.computeIfAbsent(log.responseCode(), k -> new AtomicLong()).incrementAndGet();
+                ips.computeIfAbsent(log.ip(), k -> new AtomicLong()).incrementAndGet();
+                users.computeIfAbsent(log.user(), k -> new AtomicLong()).incrementAndGet();
                 totalResponseSize.addAndGet(log.responseSize());
                 responseSizes.add(log.responseSize());
             });
         }
-
-        Map<String, Long> filteredResponseCodes = responseCodeFrequency.entrySet().stream()
-            .filter(entry -> entry.getValue().get() > 0)
-            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get()));
-
-        CollectedData collectedData = new CollectedData(processedFiles, totalRequests.get(), resourceFrequency,
-            filteredResponseCodes, totalResponseSize.get(), responseSizes);
-        LogReportGenerator logReport = new LogReportGenerator(format, fromDate, toDate, PERCENTILE);
-        logReport.generateLog(collectedData, output);
+        double percentile = calculatePercentile(responseSizes);
+        CollectedData collectedData = new CollectedData(totalRequests.get(), resourceFrequency,
+            responseCodeFrequency, totalResponseSize.get(), responseSizes, ips, users, percentile);
+        LogReportGenerator logReport = new LogReportGenerator(format, fromDate, toDate);
+        logReport.generateLog(processedFiles, collectedData, output);
     }
 
     private static List<Path> getMatchingFiles(String userPathPattern, PrintStream output) {
@@ -109,6 +109,17 @@ public class LogAnalyzer {
         return logFiles;
     }
 
+    private double calculatePercentile(List<Long> responseCodes) {
+        if (responseCodes.isEmpty()) {
+            return 0;
+        }
+
+        Collections.sort(responseCodes);
+
+        int index = (int) Math.ceil(PERCENTILE * responseCodes.size()) - 1;
+        return responseCodes.get(index);
+    }
+
     private static Stream<LogData> parseFileToStream(Path filePath, LocalDateTime fromDate, LocalDateTime toDate) {
         try {
             return Files.lines(filePath)
@@ -129,7 +140,9 @@ public class LogAnalyzer {
                 String resource = matcher.group(LogParams.REQUEST.ordinal() + SHIFT).split(" ")[1];
                 String responseCode = matcher.group(LogParams.STATUS.ordinal() + SHIFT);
                 long responseSize = Long.parseLong(matcher.group(LogParams.BODY_BYTES_SENT.ordinal() + SHIFT));
-                return new LogData(resource, responseCode, responseSize);
+                String ip = matcher.group(LogParams.REMOTE_ADDR.ordinal() + SHIFT);
+                String user = matcher.group(LogParams.REMOTE_USER.ordinal() + SHIFT);
+                return new LogData(ip, user, resource, responseCode, responseSize);
             }
         }
         return null;

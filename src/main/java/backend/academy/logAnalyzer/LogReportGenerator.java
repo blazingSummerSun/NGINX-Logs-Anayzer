@@ -8,62 +8,69 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class LogReportGenerator {
+    private static final String GENERAL_INFORMATION = " General Information";
+    private static final String REQUESTED_RESOURCES = " Requested resources";
+    private static final String RESPONSE_CODES = " Response codes";
     private final String format;
     private final LocalDateTime fromDate;
     private final LocalDateTime toDate;
-    private final double percentile;
-    private final static String LOG_REPORT = "log_report";
+    private static final String LOG_REPORT = "log_report";
 
-    public LogReportGenerator(String format, LocalDateTime fromDate, LocalDateTime toDate, double percentile) {
+    public LogReportGenerator(String format, LocalDateTime fromDate, LocalDateTime toDate) {
         this.format = format;
         this.fromDate = fromDate;
         this.toDate = toDate;
-        this.percentile = percentile;
     }
 
-    public void generateLog(
-        CollectedData collectedData, PrintStream output
-    ) {
+    public void generateLog(List<String> fileNames, CollectedData collectedData, PrintStream output) {
         String fileExtension;
         if (format == null || format.equals(FileExtensions.MARKDOWN.toString().toLowerCase())) {
             fileExtension = FileExtensions.MARKDOWN.extension();
             Path outputFile = Paths.get(LOG_REPORT + fileExtension);
-            generateMarkdown(outputFile, collectedData, output);
+            generateMarkdown(fileNames, outputFile, collectedData, output);
         } else {
             fileExtension = FileExtensions.ASCIIDOC.extension();
             Path outputFile = Paths.get(LOG_REPORT + fileExtension);
-            generateAsciiDoc(outputFile, collectedData, output);
+            generateAsciiDoc(fileNames, outputFile, collectedData, output);
         }
     }
 
     private void generateAsciiDoc(
-        Path outputFile, CollectedData collectedData, PrintStream output
+        List<String> fileNames,
+        Path outputFile,
+        CollectedData collectedData,
+        PrintStream output
     ) {
+        String frequentIp = theMostFrequentIp(collectedData.ips());
+        String frequentUser = theMostFrequentUser(collectedData.users());
         try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(outputFile, StandardCharsets.UTF_8))) {
-            writer.println("=== General Information");
+            writer.println(AsciiDocStructure.HEADER.structure() + GENERAL_INFORMATION);
             writer.println(AsciiDocStructure.TABLE.structure());
             writer.printf("| Metrics | Value %n");
             writer.println();
-            writer.printf("| File(-s) | `%s` %n", String.join(", ", collectedData.fileNames()));
-            writer.printf("| From date | %s %n", Objects.requireNonNullElse(fromDate, ""));
-            writer.printf("| To date | %s %n", Objects.requireNonNullElse(toDate, ""));
+            writer.printf("| File(-s) | %s%n", String.join(", ", fileNames));
+            writer.printf("| From date | %s %n", Objects.requireNonNullElse(fromDate, "-"));
+            writer.printf("| To date | %s %n", Objects.requireNonNullElse(toDate, "-"));
             writer.printf("| Number of requests | %,d %n", collectedData.totalRequests());
             writer.printf("| Average response size | %,d b %n",
                 collectedData.totalRequests() > 0 ? collectedData.totalResponseSize() / collectedData.totalRequests()
                     : 0);
 
-            double calculatedPercentile = calculatePercentile(collectedData.responseSizes());
-            writer.printf("| 95p answer size | %.2f b %n", calculatedPercentile);
+            writer.printf("| 95p answer size | %.2f b %n", collectedData.percentile());
+            writer.printf("| Most frequent IP | %s %n", frequentIp);
+            writer.printf("| Most frequent user | %s %n", frequentUser);
             writer.println(AsciiDocStructure.TABLE.structure());
 
             writer.println();
 
-            writer.println("=== Requested resources");
+            writer.println(AsciiDocStructure.HEADER.structure() + REQUESTED_RESOURCES);
             writer.println(AsciiDocStructure.TABLE.structure());
             writer.println("| Resource | Amount ");
             writer.println();
@@ -73,13 +80,13 @@ public class LogReportGenerator {
 
             writer.println();
 
-            writer.println("=== Response codes");
+            writer.println(AsciiDocStructure.HEADER.structure() + RESPONSE_CODES);
             writer.println(AsciiDocStructure.TABLE.structure());
             writer.println();
             writer.println("| Code | Name | Amount ");
 
             collectedData.responseCodes().forEach((code, count) ->
-                writer.printf("| %s | %s | %,d %n", code, getResponseCodeName(code), count));
+                writer.printf("| %s | %s | %,d %n", code, getResponseCodeName(code), count.get()));
             writer.println(AsciiDocStructure.TABLE.structure());
 
         } catch (IOException e) {
@@ -88,45 +95,66 @@ public class LogReportGenerator {
     }
 
     private void generateMarkdown(
-        Path outputFile, CollectedData collectedData, PrintStream output
+        List<String> fileNames,
+        Path outputFile,
+        CollectedData collectedData,
+        PrintStream output
     ) {
+        String frequentIp = theMostFrequentIp(collectedData.ips());
+        String frequentUser = theMostFrequentUser(collectedData.users());
         try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(outputFile, StandardCharsets.UTF_8))) {
-            writer.println("### General Information");
+            writer.println(MarkdownStructure.HEADER.structure() + GENERAL_INFORMATION);
             writer.println();
             writer.printf("| Metrics | Value |%n");
-            writer.println("|-----------------------|------------------------------------|");
-            writer.printf("| File(-s) | `%s` |%n", String.join(", ", collectedData.fileNames()));
-            writer.printf("| From date | %s | %n", Objects.requireNonNullElse(fromDate, ""));
-            writer.printf("| To date | %s | %n", Objects.requireNonNullElse(toDate, ""));
-            writer.printf("| Number of requests | %,d |%n", collectedData.totalRequests());
+            writer.println(MarkdownStructure.SPLITERATOR_2.structure());
+            writer.printf("| File(-s) | `%s` |%n", String.join(", ", fileNames));
+            writer.printf("| From date | %s | %n", Objects.requireNonNullElse(fromDate, "-"));
+            writer.printf("| To date | %s | %n", Objects.requireNonNullElse(toDate, "-"));
+            writer.printf(
+                "| Number of requests | %,d |%n", collectedData.totalRequests());
             writer.printf("| Average response size | %,d b |%n",
                 collectedData.totalRequests() > 0 ? collectedData.totalResponseSize() / collectedData.totalRequests()
                     : 0);
 
-            double calculatedPercentile = calculatePercentile(collectedData.responseSizes());
-            writer.printf("| 95p answer size | %.2f b |%n", calculatedPercentile);
+            writer.printf("| 95p answer size | %.2f b |%n", collectedData.percentile());
+            writer.printf("| Most frequent IP | %s |%n", frequentIp);
+            writer.printf("| Most frequent user | %s |%n", frequentUser);
 
             writer.println();
 
-            writer.println("### Requested resources");
+            writer.println(MarkdownStructure.HEADER.structure() + REQUESTED_RESOURCES);
             writer.println();
             writer.println("| Resource | Amount |");
-            writer.println("|------------------------|--------|");
+            writer.println(MarkdownStructure.SPLITERATOR_2.structure());
             collectedData.resourceFrequency().forEach((resource, count) ->
                 writer.printf("| `%s` | %,d |%n", resource, count.get()));
 
             writer.println();
 
-            writer.println("### Response codes");
+            writer.println(MarkdownStructure.HEADER.structure() + RESPONSE_CODES);
             writer.println();
             writer.println("| Code | Name | Amount |");
-            writer.println("|------|------------------------|--------|");
+            writer.println(MarkdownStructure.SPLITERATOR_3.structure());
             collectedData.responseCodes().forEach((code, count) ->
-                writer.printf("| %s | %s | %,d |%n", code, getResponseCodeName(code), count));
+                writer.printf("| %s | %s | %,d |%n", code, getResponseCodeName(code), count.get()));
 
         } catch (IOException e) {
             output.println(ExceptionList.ERROR_WRITING_FILE.exception());
         }
+    }
+
+    private String theMostFrequentUser(Map<String, AtomicLong> users) {
+        return users.entrySet().stream()
+            .max(Map.Entry.comparingByValue(Comparator.comparingLong(AtomicLong::get)))
+            .map(Map.Entry::getKey)
+            .orElse("");
+    }
+
+    private String theMostFrequentIp(Map<String, AtomicLong> ids) {
+        return ids.entrySet().stream()
+            .max(Map.Entry.comparingByValue(Comparator.comparingLong(AtomicLong::get)))
+            .map(Map.Entry::getKey)
+            .orElse("");
     }
 
     private String getResponseCodeName(String code) {
@@ -144,16 +172,5 @@ public class LogReportGenerator {
             returnCode = "Informational responses";
         }
         return returnCode;
-    }
-
-    private double calculatePercentile(List<Long> responseCodes) {
-        if (responseCodes.isEmpty()) {
-            return 0;
-        }
-
-        Collections.sort(responseCodes);
-
-        int index = (int) Math.ceil(percentile * responseCodes.size()) - 1;
-        return responseCodes.get(index);
     }
 }
