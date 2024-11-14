@@ -3,7 +3,7 @@ package backend.academy.logAnalyzer;
 import lombok.Getter;
 
 @Getter public enum AsciiDocStructure {
-    TABLE("|===");
+    TABLE("|==="), HEADER("===");
     private final String structure;
 
     AsciiDocStructure(String structure) {
