@@ -4,7 +4,8 @@ import lombok.Getter;
 
 @Getter public enum ExceptionList {
     ERROR_WRITING_FILE("Error writing file!"), INVALID_PATH_PATTERN("Invalid path or pattern!"),
-    ERROR_INPUT_STRING("Impossible to read the string!"), ERROR_FETCHING_URL("Error fetching URL!"),;
+    ERROR_INPUT_STRING("Impossible to read the string!"), ERROR_FETCHING_URL("Error fetching URL!"),
+    INVALID_FILTER_FIELD("Invalid filter field!");
     private final String exception;
 
     ExceptionList(String exception) {

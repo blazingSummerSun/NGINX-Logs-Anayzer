@@ -15,14 +15,18 @@ import java.time.LocalDateTime;
 import lombok.Getter;
 
 public class InputParser {
+    private static final String AGENT_FILTER = "agent";
     @Getter private String path;
     @Getter private LocalDateTime from;
     @Getter private LocalDateTime to;
     @Getter private String format;
+    @Getter private String agentValue;
+    private boolean agentFilter;
     private final PrintStream output;
     private final BufferedReader reader;
 
     public InputParser(PrintStream output, InputStream input) {
+        this.agentFilter = false;
         this.output = output;
         this.reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
     }
@@ -33,7 +37,7 @@ public class InputParser {
         ISOParser isoParser = new ISOParser();
         int pointer = 0;
 
-        while (pointer < args.length) {
+        while (pointer < args.length - 1) {
             switch (args[pointer]) {
                 case "--path":
                     path = parsePath(args[++pointer]);
@@ -46,6 +50,25 @@ public class InputParser {
                     break;
                 case "--format":
                     this.format = args[++pointer];
+                    break;
+                case "--filter-field":
+                    if (AGENT_FILTER.equals(args[++pointer])) {
+                        agentFilter = true;
+                    } else {
+                        output.println(ExceptionList.INVALID_FILTER_FIELD.exception());
+                        pointer++;
+                    }
+                    break;
+                case "--filter-value":
+                    if (agentFilter) {
+                        StringBuilder filteredString = new StringBuilder(args[++pointer].substring(1));
+                        while (pointer < args.length - 1 && !args[++pointer].startsWith("--")) {
+                            filteredString.append(" ").append(args[pointer]);
+                        }
+                        this.agentValue = filteredString.substring(0, filteredString.length() - 1);
+                    } else {
+                        pointer++;
+                    }
                     break;
                 default:
                     pointer++;
@@ -76,7 +99,7 @@ public class InputParser {
             return false;
         }
         try {
-            Paths.get(sanitizedPath.replace("*", "test"));  // Replace '*' temporarily to check path validity
+            Paths.get(sanitizedPath);
             return true;
         } catch (InvalidPathException e) {
             return false;

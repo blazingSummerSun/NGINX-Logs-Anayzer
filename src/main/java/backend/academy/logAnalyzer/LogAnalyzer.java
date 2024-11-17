@@ -12,6 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
@@ -46,7 +48,7 @@ public class LogAnalyzer {
         this.output = output;
     }
 
-    public void analyze(String path, LocalDateTime fromDate, LocalDateTime toDate, String format) {
+    public void analyze(String path, LocalDateTime fromDate, LocalDateTime toDate, String format, String agentFilter) {
         AtomicLong totalRequests = new AtomicLong();
         Map<String, AtomicLong> ips = new ConcurrentHashMap<>();
         Map<String, AtomicLong> users = new ConcurrentHashMap<>();
@@ -59,11 +61,11 @@ public class LogAnalyzer {
         Supplier<Stream<LogData>> logDataStreamSupplier = () -> {
             if (isValidURL(path)) {
                 processedFiles.add(path);
-                return createStreamFromURL(path, output, fromDate, toDate);
+                return createStreamFromURL(path, output, fromDate, toDate, agentFilter);
             } else {
                 List<Path> logFiles = getMatchingFiles(path, output);
                 logFiles.forEach(file -> processedFiles.add(file.toString()));
-                return logFiles.stream().flatMap(file -> parseFileToStream(file, fromDate, toDate));
+                return logFiles.stream().flatMap(file -> parseFileToStream(file, fromDate, toDate, agentFilter));
 
             }
         };
@@ -103,8 +105,10 @@ public class LogAnalyzer {
                     return FileVisitResult.CONTINUE;
                 }
             });
-        } catch (IOException e) {
+        } catch (InvalidPathException | NoSuchFileException e) {
             output.println(ExceptionList.INVALID_PATH_PATTERN.exception());
+        } catch (IOException e) {
+            output.println(ExceptionList.ERROR_WRITING_FILE.exception());
         }
         return logFiles;
     }
@@ -120,17 +124,22 @@ public class LogAnalyzer {
         return responseCodes.get(index);
     }
 
-    private static Stream<LogData> parseFileToStream(Path filePath, LocalDateTime fromDate, LocalDateTime toDate) {
-        try {
-            return Files.lines(filePath)
-                .map(line -> parseLineToLogData(line, fromDate, toDate))
+    private static Stream<LogData> parseFileToStream(
+        Path filePath,
+        LocalDateTime fromDate,
+        LocalDateTime toDate,
+        String agentFilter
+    ) {
+        try (Stream<String> lines = Files.lines(filePath)) {
+            return lines
+                .map(line -> parseLineToLogData(line, fromDate, toDate, agentFilter))
                 .filter(Objects::nonNull);
         } catch (IOException e) {
             return Stream.empty();
         }
     }
 
-    private static LogData parseLineToLogData(String line, LocalDateTime from, LocalDateTime to) {
+    private static LogData parseLineToLogData(String line, LocalDateTime from, LocalDateTime to, String agentFilter) {
         Matcher matcher = LOG_PATTERN.matcher(line);
         if (matcher.find()) {
             String currentLogTime = matcher.group(LogParams.TIMESTAMP.ordinal() + SHIFT);
@@ -142,27 +151,45 @@ public class LogAnalyzer {
                 long responseSize = Long.parseLong(matcher.group(LogParams.BODY_BYTES_SENT.ordinal() + SHIFT));
                 String ip = matcher.group(LogParams.REMOTE_ADDR.ordinal() + SHIFT);
                 String user = matcher.group(LogParams.REMOTE_USER.ordinal() + SHIFT);
-                return new LogData(ip, user, resource, responseCode, responseSize);
+                String userAgent = matcher.group(LogParams.HTTP_USER_AGENT.ordinal() + SHIFT);
+
+                LogData logData = new LogData(ip, user, resource, responseCode, responseSize);
+                if (isFollowAgentFilter(agentFilter, userAgent)) {
+                    return logData;
+                }
             }
         }
         return null;
+    }
+
+    private static boolean isFollowAgentFilter(String agentFilter, String userAgent) {
+        if (agentFilter == null) {
+            return true;
+        }
+        String regex = agentFilter.replace("*", ".*");
+        Pattern pattern = Pattern.compile(regex);
+        Matcher agentMatcher = pattern.matcher(userAgent);
+        return agentMatcher.matches() || userAgent.equals(agentFilter);
     }
 
     private static Stream<LogData> createStreamFromURL(
         String urlString,
         PrintStream output,
         LocalDateTime fromDate,
-        LocalDateTime toDate
+        LocalDateTime toDate,
+        String agentFilter
     ) {
         try {
             URL url = new URI(urlString).toURL();
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
 
-            BufferedReader reader = new BufferedReader(
-                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
-            return reader.lines()
-                .map(line -> parseLineToLogData(line, fromDate, toDate)).filter(Objects::nonNull);
+            try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+                return reader.lines()
+                    .map(line -> parseLineToLogData(line, fromDate, toDate, agentFilter))
+                    .filter(Objects::nonNull);
+            }
         } catch (IOException | URISyntaxException e) {
             output.println(ExceptionList.ERROR_FETCHING_URL.exception());
             return Stream.empty();
