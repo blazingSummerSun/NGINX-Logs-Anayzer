@@ -99,8 +99,11 @@ public class LogReportGenerator {
             writer.println(AsciiDocStructure.TABLE.structure());
             writer.println("| Resource | Amount ");
             writer.println();
-            collectedData.resourceFrequency().forEach((resource, count) ->
-                writer.printf("| `%s` | %,d %n", resource, count.get()));
+            collectedData.resourceFrequency().entrySet()
+                .stream()
+                .sorted(Map.Entry.<String, AtomicLong>comparingByValue(Comparator.comparingLong(AtomicLong::get))
+                    .reversed())
+                .forEach(entry -> writer.printf("| %s | %,d %n", entry.getKey(), entry.getValue().get()));
             writer.println(AsciiDocStructure.TABLE.structure());
 
             writer.println();
@@ -110,8 +113,13 @@ public class LogReportGenerator {
             writer.println();
             writer.println("| Code | Name | Amount ");
 
-            collectedData.responseCodes().forEach((code, count) ->
-                writer.printf("| %s | %s | %,d %n", code, getResponseCodeName(code), count.get()));
+            collectedData.responseCodes().entrySet()
+                .stream()
+                .sorted(Map.Entry.<String, AtomicLong>comparingByValue(Comparator.comparingLong(AtomicLong::get))
+                    .reversed())
+                .forEach(
+                    entry -> writer.printf("| %s | %s | %,d %n", entry.getKey(), getResponseCodeName(entry.getKey()),
+                        entry.getValue().get()));
             writer.println(AsciiDocStructure.TABLE.structure());
 
         } catch (IOException e) {
@@ -159,8 +167,11 @@ public class LogReportGenerator {
             writer.println();
             writer.println("| Resource | Amount |");
             writer.println(MarkdownStructure.SPLITERATOR_2.structure());
-            collectedData.resourceFrequency().forEach((resource, count) ->
-                writer.printf("| `%s` | %,d |%n", resource, count.get()));
+            collectedData.resourceFrequency().entrySet()
+                .stream()
+                .sorted(Map.Entry.<String, AtomicLong>comparingByValue(Comparator.comparingLong(AtomicLong::get))
+                    .reversed())
+                .forEach(entry -> writer.printf("| %s | %,d |%n", entry.getKey(), entry.getValue().get()));
 
             writer.println();
 
@@ -168,8 +179,13 @@ public class LogReportGenerator {
             writer.println();
             writer.println("| Code | Name | Amount |");
             writer.println(MarkdownStructure.SPLITERATOR_3.structure());
-            collectedData.responseCodes().forEach((code, count) ->
-                writer.printf("| %s | %s | %,d |%n", code, getResponseCodeName(code), count.get()));
+            collectedData.responseCodes().entrySet()
+                .stream()
+                .sorted(Map.Entry.<String, AtomicLong>comparingByValue(Comparator.comparingLong(AtomicLong::get))
+                    .reversed())
+                .forEach(
+                    entry -> writer.printf("| %s | %s | %,d |%n", entry.getKey(), getResponseCodeName(entry.getKey()),
+                        entry.getValue().get()));
 
         } catch (IOException e) {
             output.println(ExceptionList.ERROR_WRITING_FILE.exception());
