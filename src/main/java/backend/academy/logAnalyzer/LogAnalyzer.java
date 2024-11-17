@@ -32,6 +32,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import lombok.Getter;
 
 /**
  * The class is responsible for analyzing log files and generating statistical report
@@ -76,6 +77,8 @@ public class LogAnalyzer {
      */
     private final PrintStream output;
 
+    @Getter private final List<String> processedFiles = new ArrayList<>();
+
     /**
      * Constructs a {@code LogAnalyzer} instance.
      *
@@ -91,17 +94,20 @@ public class LogAnalyzer {
      * @param path        the file path or URL to the logs
      * @param fromDate    the start date-time for filtering logs
      * @param toDate      the end date-time for filtering logs
-     * @param format      the output format for the report (.md/.adoc)
      * @param agentFilter the filter for matching specific user agents
      */
-    public void analyze(String path, LocalDateTime fromDate, LocalDateTime toDate, String format, String agentFilter) {
+    public CollectedData analyze(
+        String path,
+        LocalDateTime fromDate,
+        LocalDateTime toDate,
+        String agentFilter
+    ) {
         AtomicLong totalRequests = new AtomicLong();
         Map<String, AtomicLong> ips = new ConcurrentHashMap<>();
         Map<String, AtomicLong> users = new ConcurrentHashMap<>();
         Map<String, AtomicLong> resourceFrequency = new ConcurrentHashMap<>();
         Map<String, AtomicLong> responseCodeFrequency = new ConcurrentHashMap<>();
         AtomicLong totalResponseSize = new AtomicLong();
-        List<String> processedFiles = new ArrayList<>();
         List<Long> responseSizes = new ArrayList<>();
 
         Supplier<Stream<LogData>> logDataStreamSupplier = () -> {
@@ -128,10 +134,8 @@ public class LogAnalyzer {
             });
         }
         double percentile = calculatePercentile(responseSizes);
-        CollectedData collectedData = new CollectedData(totalRequests.get(), resourceFrequency,
+        return new CollectedData(totalRequests.get(), resourceFrequency,
             responseCodeFrequency, totalResponseSize.get(), responseSizes, ips, users, percentile);
-        LogReportGenerator logReport = new LogReportGenerator(format, fromDate, toDate);
-        logReport.generateLog(processedFiles, collectedData, output);
     }
 
     /**
@@ -279,12 +283,11 @@ public class LogAnalyzer {
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
 
-            try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
-                return reader.lines()
-                    .map(line -> parseLineToLogData(line, fromDate, toDate, agentFilter))
-                    .filter(Objects::nonNull);
-            }
+            return new BufferedReader(
+                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)).lines()
+                .map(line -> parseLineToLogData(line, fromDate, toDate, agentFilter))
+                .filter(Objects::nonNull);
+
         } catch (IOException | URISyntaxException e) {
             output.println(ExceptionList.ERROR_FETCHING_URL.exception());
             return Stream.empty();
