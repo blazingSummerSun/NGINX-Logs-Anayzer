@@ -14,12 +14,12 @@ import lombok.Getter;
     /**
      * Represents a Markdown table separator for two columns.
      */
-    SPLITERATOR_2("|:--------:|--------:|"),
+    SPLITERATOR_2("| :--------: | :--------: |"),
 
     /**
      * Represents a Markdown table separator for three columns.
      */
-    SPLITERATOR_3("|:--------:|:--------:|--------:|");
+    SPLITERATOR_3("| :--------: | :--------: | :--------: |");
 
     private final String structure;
 
