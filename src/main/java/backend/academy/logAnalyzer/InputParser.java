@@ -14,6 +14,10 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import lombok.Getter;
 
+/**
+ * Parses input data from a provided input stream.
+ * The class reads the input string and parses the data to identify the path, date range, format, and filter by agent.
+ */
 public class InputParser {
     private static final String AGENT_FILTER = "agent";
     @Getter private String path;
@@ -25,12 +29,21 @@ public class InputParser {
     private final PrintStream output;
     private final BufferedReader reader;
 
+    /**
+     * Constructs an InputParser with the specified output and input streams.
+     *
+     * @param output the PrintStream to output messages.
+     * @param input  the InputStream to read input data.
+     */
     public InputParser(PrintStream output, InputStream input) {
         this.agentFilter = false;
         this.output = output;
         this.reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
     }
 
+    /**
+     * Parses the input data and extracts parameters.
+     */
     public void parseData() {
         String inputString = readInputString();
         String[] args = inputString.split(" ");
@@ -76,6 +89,12 @@ public class InputParser {
         }
     }
 
+    /**
+     * Parses and validates the provided path argument.
+     *
+     * @param arg the path argument to be parsed.
+     * @return the validated path string, or null if invalid.
+     */
     private String parsePath(String arg) {
         try {
             new URI(arg).toURL();
@@ -90,6 +109,12 @@ public class InputParser {
         }
     }
 
+    /**
+     * Checks if the provided path or pattern is valid.
+     *
+     * @param path the path or pattern to be validated.
+     * @return true if valid, false otherwise.
+     */
     private boolean isValidPathOrPattern(String path) {
         if (path == null || path.trim().isEmpty()) {
             return false;
@@ -106,6 +131,11 @@ public class InputParser {
         }
     }
 
+    /**
+     * Reads an input string from the input stream.
+     *
+     * @return the input string, or null if an error occurs.
+     */
     public String readInputString() {
         try {
             return reader.readLine();

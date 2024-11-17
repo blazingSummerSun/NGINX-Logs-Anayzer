@@ -9,6 +9,9 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
+/**
+ * Parses ISO8601 formatted date strings into LocalDateTime objects.
+ */
 public class ISOParser {
     private static final String ISO_OFFSET_DATE_TIME = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}[+-]\\d{2}:\\d{2}";
     private static final String ISO_ZONED_DATE_TIME = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z";
@@ -18,6 +21,12 @@ public class ISOParser {
     private static final String ISO_ORDINAL_DATE = "\\d{4}-\\d{3}";
     private static final String MONTH_DAY = "--\\d{2}-\\d{2}";
 
+    /**
+     * Parses an ISO 8601 formatted date string into a LocalDateTime object.
+     *
+     * @param isoDate the ISO8601 formatted date string.
+     * @return the corresponding LocalDateTime object, or null if the input doesn't match the ISO8601 pattern.
+     */
     public LocalDateTime parseIso8601(String isoDate) {
         LocalDateTime formattedTime;
         if (isoDate.matches(ISO_OFFSET_DATE_TIME)) {

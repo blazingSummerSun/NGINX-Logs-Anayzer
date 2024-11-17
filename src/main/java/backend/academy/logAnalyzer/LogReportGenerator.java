@@ -14,6 +14,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Generates log reports in Markdown or AsciiDoc format based on collected log data.
+ */
 public class LogReportGenerator {
     private static final String GENERAL_INFORMATION = " General Information";
     private static final String REQUESTED_RESOURCES = " Requested resources";
@@ -23,12 +26,26 @@ public class LogReportGenerator {
     private final LocalDateTime toDate;
     private static final String LOG_REPORT = "log_report";
 
+    /**
+     * Constructs a LogReportGenerator with the specified format, fromDate, and toDate.
+     *
+     * @param format   the format of the report (either "markdown" or "asciidoc").
+     * @param fromDate the start date for the log data.
+     * @param toDate   the end date for the log data.
+     */
     public LogReportGenerator(String format, LocalDateTime fromDate, LocalDateTime toDate) {
         this.format = format;
         this.fromDate = fromDate;
         this.toDate = toDate;
     }
 
+    /**
+     * Generates a log report based on the provided file names and collected data.
+     *
+     * @param fileNames     the names of the log files.
+     * @param collectedData the collected log data.
+     * @param output        the output stream for logging errors.
+     */
     public void generateLog(List<String> fileNames, CollectedData collectedData, PrintStream output) {
         String fileExtension;
         if (format == null || format.equals(FileExtensions.MARKDOWN.toString().toLowerCase())) {
@@ -42,6 +59,14 @@ public class LogReportGenerator {
         }
     }
 
+    /**
+     * Generates a log report with .adoc extension.
+     *
+     * @param fileNames     the names of the log files.
+     * @param outputFile    the path to the output file.
+     * @param collectedData the collected log data.
+     * @param output        the output stream for logging errors.
+     */
     private void generateAsciiDoc(
         List<String> fileNames,
         Path outputFile,
@@ -94,6 +119,14 @@ public class LogReportGenerator {
         }
     }
 
+    /**
+     * Generates a log report with .md extension.
+     *
+     * @param fileNames     the names of the log files.
+     * @param outputFile    the path to the output file.
+     * @param collectedData the collected log data.
+     * @param output        the output stream for logging errors.
+     */
     private void generateMarkdown(
         List<String> fileNames,
         Path outputFile,
@@ -143,6 +176,12 @@ public class LogReportGenerator {
         }
     }
 
+    /**
+     * Searches for the most frequent user in the log files.
+     *
+     * @param users a map stores the frequency of each user.
+     * @return the most frequent user.
+     */
     private String theMostFrequentUser(Map<String, AtomicLong> users) {
         return users.entrySet().stream()
             .max(Map.Entry.comparingByValue(Comparator.comparingLong(AtomicLong::get)))
@@ -150,13 +189,25 @@ public class LogReportGenerator {
             .orElse("");
     }
 
-    private String theMostFrequentIp(Map<String, AtomicLong> ids) {
-        return ids.entrySet().stream()
+    /**
+     * Searches for the most frequent IP in the log files.
+     *
+     * @param ips a map stores the frequency of each ip.
+     * @return the most frequent ip.
+     */
+    private String theMostFrequentIp(Map<String, AtomicLong> ips) {
+        return ips.entrySet().stream()
             .max(Map.Entry.comparingByValue(Comparator.comparingLong(AtomicLong::get)))
             .map(Map.Entry::getKey)
             .orElse("");
     }
 
+    /**
+     * Defines the type of each response code.
+     *
+     * @param code a string representing the response code of the specific log.
+     * @return the type of the response code.
+     */
     private String getResponseCodeName(String code) {
         int intRepresentation = Integer.parseInt(code);
         String returnCode;
