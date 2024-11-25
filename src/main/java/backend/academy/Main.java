@@ -4,6 +4,7 @@ import backend.academy.logAnalyzer.logs.CollectedData;
 import backend.academy.logAnalyzer.logs.LogAnalyzer;
 import backend.academy.logAnalyzer.parsers.InputParser;
 import backend.academy.logAnalyzer.report.LogReportGenerator;
+import java.io.PrintStream;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -28,6 +29,7 @@ public class Main {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+        printUsage(System.out);
         InputParser inputParser = new InputParser(System.out, System.in);
         String inputString = inputParser.readInputString();
         inputParser.parseData(inputString);
@@ -37,5 +39,12 @@ public class Main {
         LogReportGenerator logReport =
             new LogReportGenerator(inputParser.format(), inputParser.from(), inputParser.to());
         logReport.generateLog(logAnalyzer.processedFiles(), parsedData);
+    }
+
+    private static void printUsage(PrintStream output) {
+        output.println(
+            "Usage: analyzer --path [local path] --from [from] --to [to] "
+                + "--filter-field agent --filter-value [value] --format [markdown/adoc]");
+        output.println("Note that last five arguments are optional.");
     }
 }
