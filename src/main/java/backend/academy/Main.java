@@ -42,9 +42,10 @@ public class Main {
     }
 
     private static void printUsage(PrintStream output) {
-        output.println(
-            "Usage: analyzer --path [local path] --from [from] --to [to] "
-                + "--filter-field agent --filter-value [value] --format [markdown/adoc]");
+        output.println("It is the program which analyzes nginx logs and generates a report.");
+        output.println("Input format is the following:");
+        output.println("analyzer --path [local path] --from [from] --to [to] " +
+            "--filter-field agent --filter-value [value] --format [markdown/adoc]");
         output.println("Note that last five arguments are optional.");
     }
 }
