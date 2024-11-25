@@ -66,6 +66,7 @@ import lombok.extern.slf4j.Slf4j;
      * @param fileNames     the names of the log files.
      * @param outputFile    the path to the output file.
      * @param collectedData the collected log data.
+     * @throws RuntimeException if some errors occurred during writing to the .adoc file.
      */
     private void generateAsciiDoc(
         List<String> fileNames,
@@ -122,7 +123,7 @@ import lombok.extern.slf4j.Slf4j;
             writer.println(AsciiDocStructure.TABLE.structure());
 
         } catch (IOException e) {
-            log.error("An error occurred while writing to the .adoc file");
+            throw new RuntimeException("An error occurred while writing to the .adoc file");
         }
     }
 
@@ -132,6 +133,7 @@ import lombok.extern.slf4j.Slf4j;
      * @param fileNames     the names of the log files.
      * @param outputFile    the path to the output file.
      * @param collectedData the collected log data.
+     * @throws RuntimeException if some errors occurred during writing to the .md file.
      */
     private void generateMarkdown(
         List<String> fileNames,
@@ -185,7 +187,7 @@ import lombok.extern.slf4j.Slf4j;
                         entry.getValue().get()));
 
         } catch (IOException e) {
-            log.error("An error occurred while writing to the .md file");
+            throw new RuntimeException("An error occurred while writing to the .md file");
         }
     }
 

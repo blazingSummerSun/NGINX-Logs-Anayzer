@@ -45,6 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 
     /**
      * Parses the input data and extracts parameters.
+     * @throws EmptyInputStringException if the input string is empty.
      */
     public void parseData(String inputString) {
         if (inputString.isEmpty()) {
@@ -97,7 +98,8 @@ import lombok.extern.slf4j.Slf4j;
      * Parses and validates the provided path argument.
      *
      * @param arg the path argument to be parsed.
-     * @return the validated path string, or null if invalid.
+     * @return the validated path string.
+     * @throws InvalidPathException if the path has invalid symbols.
      */
     private String parsePath(String arg) {
         try {
@@ -132,16 +134,17 @@ import lombok.extern.slf4j.Slf4j;
     /**
      * Reads an input string from the input stream.
      *
-     * @return the input string, or throw IOException if the error occurs.
+     * @return the input string.
+     * @throws CorruptedInputStringException if the input string has been corrupted.
      */
     public String readInputString() {
         try {
             return reader.readLine();
         } catch (IOException e) {
-            CorruptedInputStringException invalidPathException =
+            CorruptedInputStringException corruptedInputStringException =
                 new CorruptedInputStringException("input string has been corrupted");
-            invalidPathException.addSuppressed(e);
-            throw invalidPathException;
+            corruptedInputStringException.addSuppressed(e);
+            throw corruptedInputStringException;
         }
     }
 }

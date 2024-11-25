@@ -73,9 +73,8 @@ import lombok.extern.slf4j.Slf4j;
     private static final DateTimeFormatter LOG_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss Z");
 
     /**
-     * The output stream for writing logs and reports.
+     * List to store analyzed files
      */
-
     private final List<String> processedFiles = new ArrayList<>();
 
     /**
@@ -146,7 +145,7 @@ import lombok.extern.slf4j.Slf4j;
     }
 
     /**
-     * Finds log files (in {@code /src/resources/logs}) folder matching the given glob pattern and returns
+     * Finds log files (in current directory by given path) folder matching the given glob pattern and returns
      * a list of their paths.
      *
      * @param userPathPattern the glob pattern for matching log files
