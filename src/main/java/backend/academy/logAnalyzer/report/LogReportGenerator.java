@@ -123,7 +123,7 @@ import lombok.extern.slf4j.Slf4j;
             writer.println(AsciiDocStructure.TABLE.structure());
 
         } catch (IOException e) {
-            throw new RuntimeException("An error occurred while writing to the .adoc file");
+            throw new RuntimeException("An error occurred while writing to the .adoc file", e);
         }
     }
 
@@ -187,7 +187,7 @@ import lombok.extern.slf4j.Slf4j;
                         entry.getValue().get()));
 
         } catch (IOException e) {
-            throw new RuntimeException("An error occurred while writing to the .md file");
+            throw new RuntimeException("An error occurred while writing to the .md file", e);
         }
     }
 
