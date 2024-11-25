@@ -1,4 +1,4 @@
-package backend.academy.logAnalyzer;
+package backend.academy.logAnalyzer.parsers;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -83,6 +83,7 @@ public class ISOParser {
 
     private LocalDateTime parseIsoWeekDate(String isoDate) {
         try {
+            // Make YYYY-Wxx-1 from YYYY-Wxx to specify the day (Monday)
             String isoDateCopy = isoDate;
             if (isoDate.matches("\\d{4}-W\\d{2}")) {
                 isoDateCopy += "-1";

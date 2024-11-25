@@ -1,9 +1,8 @@
-package backend.academy.logAnalyzer;
+package backend.academy.logAnalyzer.logs;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -33,6 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * The class is responsible for analyzing log files and generating statistical report
@@ -52,7 +52,7 @@ import lombok.Getter;
  * </ul>
  */
 
-public class LogAnalyzer {
+@Getter @Slf4j public class LogAnalyzer {
     /**
      * The percentage (95%) used for calculating the response size percentile.
      */
@@ -75,18 +75,8 @@ public class LogAnalyzer {
     /**
      * The output stream for writing logs and reports.
      */
-    private final PrintStream output;
 
-    @Getter private final List<String> processedFiles = new ArrayList<>();
-
-    /**
-     * Constructs a {@code LogAnalyzer} instance.
-     *
-     * @param output the output stream for writing logs and reports
-     */
-    public LogAnalyzer(PrintStream output) {
-        this.output = output;
-    }
+    private final List<String> processedFiles = new ArrayList<>();
 
     /**
      * Analyzes log files or a log URL based on the given filters and generates a report.
@@ -110,17 +100,7 @@ public class LogAnalyzer {
         AtomicLong totalResponseSize = new AtomicLong();
         List<Long> responseSizes = new ArrayList<>();
 
-        Supplier<Stream<LogData>> logDataStreamSupplier = () -> {
-            if (isValidURL(path)) {
-                processedFiles.add(path);
-                return createStreamFromURL(path, output, fromDate, toDate, agentFilter);
-            } else {
-                List<Path> logFiles = getMatchingFiles(path, output);
-                logFiles.forEach(file -> processedFiles.add(file.toString()));
-                return logFiles.stream().flatMap(file -> parseFileToStream(file, fromDate, toDate, agentFilter));
-
-            }
-        };
+        Supplier<Stream<LogData>> logDataStreamSupplier = () -> getLogDataStream(path, fromDate, toDate, agentFilter);
 
         try (Stream<LogData> logDataStream = logDataStreamSupplier.get()) {
             logDataStream.forEach(log -> {
@@ -139,22 +119,46 @@ public class LogAnalyzer {
     }
 
     /**
+     * Creates a stream of {@code LogData} objects based on the given path.
+     * If the path is a valid URL, it fetches log data from the URL.
+     * Otherwise, it fetches log data from files matching the path pattern.
+     *
+     * @param path        the file path or URL to the logs
+     * @param fromDate    the start date-time for filtering log entries
+     * @param toDate      the end date-time for filtering log entries
+     * @param agentFilter the filter for matching specific user agents
+     * @return a stream of {@code LogData} objects parsed from the specified path
+     */
+    private Stream<LogData> getLogDataStream(
+        String path,
+        LocalDateTime fromDate,
+        LocalDateTime toDate,
+        String agentFilter
+    ) {
+        if (isValidURL(path)) {
+            processedFiles.add(path);
+            return createStreamFromURL(path, fromDate, toDate, agentFilter);
+        } else {
+            List<Path> logFiles = getMatchingFiles(path);
+            logFiles.forEach(file -> processedFiles.add(file.toString()));
+            return logFiles.stream().flatMap(file -> parseFileToStream(file, fromDate, toDate, agentFilter));
+        }
+    }
+
+    /**
      * Finds log files (in {@code /src/resources/logs}) folder matching the given glob pattern and returns
      * a list of their paths.
      *
      * @param userPathPattern the glob pattern for matching log files
-     * @param output          the output stream for error messages
      * @return a list of paths to the matching log files
      */
-    private static List<Path> getMatchingFiles(String userPathPattern, PrintStream output) {
-        String basePath = "src/main/resources/";
-        String fullPathPattern = basePath + userPathPattern;
-
+    private static List<Path> getMatchingFiles(String userPathPattern) {
         List<Path> logFiles = new ArrayList<>();
-        PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("glob:" + fullPathPattern);
+        String mainFolder = userPathPattern.split("/")[0];
+        PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("glob:" + userPathPattern);
 
         try {
-            Files.walkFileTree(Paths.get(basePath + "logs"), new SimpleFileVisitor<>() {
+            Files.walkFileTree(Paths.get(mainFolder), new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                     if (pathMatcher.matches(file)) {
@@ -164,9 +168,9 @@ public class LogAnalyzer {
                 }
             });
         } catch (InvalidPathException | NoSuchFileException e) {
-            output.println(ExceptionList.INVALID_PATH_PATTERN.exception());
+            log.error("Impossible to reach some files", e);
         } catch (IOException e) {
-            output.println(ExceptionList.ERROR_WRITING_FILE.exception());
+            log.error("Error during files searching has been occurred!", e);
         }
         return logFiles;
     }
@@ -265,7 +269,6 @@ public class LogAnalyzer {
      * Creates a stream of {@code LogData} objects from a remote log URL.
      *
      * @param urlString   the URL to the remote log file
-     * @param output      the output stream for error messages
      * @param fromDate    the start date-time for filtering log entries
      * @param toDate      the end date-time for filtering log entries
      * @param agentFilter the filter for matching specific user agents
@@ -273,7 +276,6 @@ public class LogAnalyzer {
      */
     private static Stream<LogData> createStreamFromURL(
         String urlString,
-        PrintStream output,
         LocalDateTime fromDate,
         LocalDateTime toDate,
         String agentFilter
@@ -289,7 +291,7 @@ public class LogAnalyzer {
                 .filter(Objects::nonNull);
 
         } catch (IOException | URISyntaxException e) {
-            output.println(ExceptionList.ERROR_FETCHING_URL.exception());
+            log.error("An error occurred while reading logs from the URL", e);
             return Stream.empty();
         }
     }

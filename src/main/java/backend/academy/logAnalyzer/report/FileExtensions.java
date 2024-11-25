@@ -1,4 +1,4 @@
-package backend.academy.logAnalyzer;
+package backend.academy.logAnalyzer.report;
 
 import lombok.Getter;
 

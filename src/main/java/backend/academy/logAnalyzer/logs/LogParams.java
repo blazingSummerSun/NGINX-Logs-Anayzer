@@ -1,4 +1,4 @@
-package backend.academy.logAnalyzer;
+package backend.academy.logAnalyzer.logs;
 
 /**
  * Enumeration representing the parameters in a log entry.

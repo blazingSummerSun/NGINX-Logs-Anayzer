@@ -1,4 +1,4 @@
-package backend.academy.logAnalyzer;
+package backend.academy.logAnalyzer.logs;
 
 import java.util.List;
 import java.util.Map;

@@ -1,5 +1,7 @@
-package backend.academy.logAnalyzer;
+package backend.academy.logAnalyzer.parsers;
 
+import backend.academy.logAnalyzer.exceptions.CorruptedInputStringException;
+import backend.academy.logAnalyzer.exceptions.EmptyInputStringException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,15 +12,15 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Parses input data from a provided input stream.
  * The class reads the input string and parses the data to identify the path, date range, format, and filter by agent.
  */
-public class InputParser {
+@Slf4j public class InputParser {
     private static final String AGENT_FILTER = "agent";
     @Getter private String path;
     @Getter private LocalDateTime from;
@@ -44,8 +46,10 @@ public class InputParser {
     /**
      * Parses the input data and extracts parameters.
      */
-    public void parseData() {
-        String inputString = readInputString();
+    public void parseData(String inputString) {
+        if (inputString.isEmpty()) {
+            throw new EmptyInputStringException("input string is empty");
+        }
         String[] args = inputString.split(" ");
         ISOParser isoParser = new ISOParser();
         int pointer = 0;
@@ -68,7 +72,7 @@ public class InputParser {
                     if (AGENT_FILTER.equals(args[++pointer])) {
                         agentFilter = true;
                     } else {
-                        output.println(ExceptionList.INVALID_FILTER_FIELD.exception());
+                        output.println("Such a filter doesn't exist!");
                         pointer++;
                     }
                     break;
@@ -103,8 +107,10 @@ public class InputParser {
             if (isValidPathOrPattern(arg)) {
                 return arg;
             } else {
-                output.println(ExceptionList.INVALID_PATH_PATTERN.exception());
-                return null;
+                InvalidPathException invalidPathException =
+                    new InvalidPathException(arg, "input path has incorrect format");
+                invalidPathException.addSuppressed(e);
+                throw invalidPathException;
             }
         }
     }
@@ -120,28 +126,22 @@ public class InputParser {
             return false;
         }
         String sanitizedPath = path.trim();
-        if (!sanitizedPath.matches("[a-zA-Z0-9_/.*?-]+")) {
-            return false;
-        }
-        try {
-            Paths.get(sanitizedPath);
-            return true;
-        } catch (InvalidPathException e) {
-            return false;
-        }
+        return sanitizedPath.matches("[a-zA-Z0-9_/.*?-]+");
     }
 
     /**
      * Reads an input string from the input stream.
      *
-     * @return the input string, or null if an error occurs.
+     * @return the input string, or throw IOException if the error occurs.
      */
     public String readInputString() {
         try {
             return reader.readLine();
         } catch (IOException e) {
-            output.println(ExceptionList.ERROR_INPUT_STRING.exception());
+            CorruptedInputStringException invalidPathException =
+                new CorruptedInputStringException("input string has been corrupted");
+            invalidPathException.addSuppressed(e);
+            throw invalidPathException;
         }
-        return null;
     }
 }

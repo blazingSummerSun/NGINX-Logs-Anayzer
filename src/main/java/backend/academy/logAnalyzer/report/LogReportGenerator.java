@@ -1,7 +1,8 @@
-package backend.academy.logAnalyzer;
+package backend.academy.logAnalyzer.report;
 
+import backend.academy.logAnalyzer.logs.CollectedData;
+import backend.academy.logAnalyzer.logs.ResponseCodeNames;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -13,11 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Generates log reports in Markdown or AsciiDoc format based on collected log data.
  */
-public class LogReportGenerator {
+@Slf4j public class LogReportGenerator {
     private static final String GENERAL_INFORMATION = " General Information";
     private static final String REQUESTED_RESOURCES = " Requested resources";
     private static final String RESPONSE_CODES = " Response codes";
@@ -44,18 +46,17 @@ public class LogReportGenerator {
      *
      * @param fileNames     the names of the log files.
      * @param collectedData the collected log data.
-     * @param output        the output stream for logging errors.
      */
-    public void generateLog(List<String> fileNames, CollectedData collectedData, PrintStream output) {
+    public void generateLog(List<String> fileNames, CollectedData collectedData) {
         String fileExtension;
         if (format == null || format.equals(FileExtensions.MARKDOWN.toString().toLowerCase())) {
             fileExtension = FileExtensions.MARKDOWN.extension();
             Path outputFile = Paths.get(LOG_REPORT + fileExtension);
-            generateMarkdown(fileNames, outputFile, collectedData, output);
+            generateMarkdown(fileNames, outputFile, collectedData);
         } else {
             fileExtension = FileExtensions.ASCIIDOC.extension();
             Path outputFile = Paths.get(LOG_REPORT + fileExtension);
-            generateAsciiDoc(fileNames, outputFile, collectedData, output);
+            generateAsciiDoc(fileNames, outputFile, collectedData);
         }
     }
 
@@ -65,13 +66,11 @@ public class LogReportGenerator {
      * @param fileNames     the names of the log files.
      * @param outputFile    the path to the output file.
      * @param collectedData the collected log data.
-     * @param output        the output stream for logging errors.
      */
     private void generateAsciiDoc(
         List<String> fileNames,
         Path outputFile,
-        CollectedData collectedData,
-        PrintStream output
+        CollectedData collectedData
     ) {
         String frequentIp = theMostFrequentIp(collectedData.ips());
         String frequentUser = theMostFrequentUser(collectedData.users());
@@ -123,7 +122,7 @@ public class LogReportGenerator {
             writer.println(AsciiDocStructure.TABLE.structure());
 
         } catch (IOException e) {
-            output.println(ExceptionList.ERROR_WRITING_FILE.exception());
+            log.error("An error occurred while writing to the .adoc file");
         }
     }
 
@@ -133,13 +132,11 @@ public class LogReportGenerator {
      * @param fileNames     the names of the log files.
      * @param outputFile    the path to the output file.
      * @param collectedData the collected log data.
-     * @param output        the output stream for logging errors.
      */
     private void generateMarkdown(
         List<String> fileNames,
         Path outputFile,
-        CollectedData collectedData,
-        PrintStream output
+        CollectedData collectedData
     ) {
         String frequentIp = theMostFrequentIp(collectedData.ips());
         String frequentUser = theMostFrequentUser(collectedData.users());
@@ -188,7 +185,7 @@ public class LogReportGenerator {
                         entry.getValue().get()));
 
         } catch (IOException e) {
-            output.println(ExceptionList.ERROR_WRITING_FILE.exception());
+            log.error("An error occurred while writing to the .md file");
         }
     }
 

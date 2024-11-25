@@ -1,9 +1,9 @@
 package backend.academy;
 
-import backend.academy.logAnalyzer.CollectedData;
-import backend.academy.logAnalyzer.InputParser;
-import backend.academy.logAnalyzer.LogAnalyzer;
-import backend.academy.logAnalyzer.LogReportGenerator;
+import backend.academy.logAnalyzer.logs.CollectedData;
+import backend.academy.logAnalyzer.logs.LogAnalyzer;
+import backend.academy.logAnalyzer.parsers.InputParser;
+import backend.academy.logAnalyzer.report.LogReportGenerator;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -29,12 +29,13 @@ public class Main {
      */
     public static void main(String[] args) {
         InputParser inputParser = new InputParser(System.out, System.in);
-        inputParser.parseData();
-        LogAnalyzer logAnalyzer = new LogAnalyzer(System.out);
+        String inputString = inputParser.readInputString();
+        inputParser.parseData(inputString);
+        LogAnalyzer logAnalyzer = new LogAnalyzer();
         CollectedData parsedData =
             logAnalyzer.analyze(inputParser.path(), inputParser.from(), inputParser.to(), inputParser.agentValue());
         LogReportGenerator logReport =
             new LogReportGenerator(inputParser.format(), inputParser.from(), inputParser.to());
-        logReport.generateLog(logAnalyzer.processedFiles(), parsedData, System.out);
+        logReport.generateLog(logAnalyzer.processedFiles(), parsedData);
     }
 }

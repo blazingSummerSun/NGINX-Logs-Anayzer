@@ -1,4 +1,4 @@
-package backend.academy.logAnalyzer;
+package backend.academy.logAnalyzer.logs;
 
 /**
  * Represents an information about a single log-string.
